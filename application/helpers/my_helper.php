@@ -3248,6 +3248,20 @@ if (!function_exists('getCompanyInfoByAPIKey')) {
     }
 }
 
+if (!function_exists("getItemData")) {
+    function getItemData($code)
+    {
+        $CI = &get_instance();
+        $CI->db->select("id");
+        $CI->db->from("tbl_items");
+        $CI->db->where("code", $code);
+        $CI->db->where("del_status", "Live");
+        $result = $CI->db->get()->row();
+
+        return $result ? $result : null;
+    }
+}
+
 
 /**
  * getPlanText

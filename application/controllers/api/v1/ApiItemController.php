@@ -86,11 +86,13 @@ class ApiItemController extends REST_Controller
                 $unit_type = $item_info['unit_type'];
                 $opening_stock = json_decode(str_replace("'", '"', $item_info['opening_stock']), true);
                 $itemArr = array();
-                $itemArr['code'] = $this->Master_model->generateItemCodeByCompanyId($company_id);
+                $itemArr['code'] = $item_info['code'];
                 $itemArr['name'] = $item_info['name'];
                 $itemArr['alternative_name'] = $item_info['alternative_name'];
                 $itemArr['type'] = $item_info['type'];
                 $itemArr['p_type'] = $item_info['type'];
+                $itemArr['loyalty_point'] = $item_info['loyalty_point'];
+                $itemArr['profit_margin'] = $item_info['profit_margin'];
                 if ($item_info['category_name'] != '') {
                     $itemArr['category_id'] = $this->Common_model->fieldNameCheckingByFieldNameForAPI($item_info['category_name'], 'name', 'tbl_item_categories', 0, $company_id);
                 } else {
@@ -149,7 +151,8 @@ class ApiItemController extends REST_Controller
                     if ($insertedId) {
                         $response = array(
                             'status' => 200,
-                            'message' => 'Data inserted successful.'
+                            'message' => 'Data inserted successful.',
+                            'opening_stock' => $opening_stock,
                         );
                     } else {
                         $response = array(
@@ -195,10 +198,6 @@ class ApiItemController extends REST_Controller
             ->set_output(json_encode($response));
     }
 
-
-
-
-
     /**
      * editItem_post
      * @access public
@@ -237,7 +236,9 @@ class ApiItemController extends REST_Controller
     {
         $item_info = json_decode(file_get_contents("php://input"), true);
         $item_id = $item_info['id'];
-        $find_item_id = $this->Common_model->getFindId($item_id, 'tbl_items');
+        $item_code = $item_info['code'];
+        // $find_item_id = $this->Common_model->getFindId($item_id, 'tbl_items');
+        $find_item_id = getItemData($item_code);
         if ($find_item_id) {
             $item_updated_id = $find_item_id->id;
             $company_info = getCompanyInfoByAPIKey($item_info['api_auth_key']);
@@ -251,6 +252,8 @@ class ApiItemController extends REST_Controller
                 $itemArr['alternative_name'] = $item_info['alternative_name'];
                 $itemArr['type'] = $item_info['type'];
                 $itemArr['p_type'] = $item_info['type'];
+                $itemArr['loyalty_point'] = $item_info['loyalty_point'];
+                $itemArr['profit_margin'] = $item_info['profit_margin'];
                 if ($item_info['category_name'] != '') {
                     $itemArr['category_id'] = $this->Common_model->fieldNameCheckingByFieldNameForAPI($item_info['category_name'], 'name', 'tbl_item_categories', $user_id, $company_id);
                 } else {
@@ -334,6 +337,7 @@ class ApiItemController extends REST_Controller
             $response = array(
                 'status' => 404,
                 'message' => 'Item Not Found',
+                'id' => $find_item_id,
             );
         }
         $this->output
@@ -390,12 +394,12 @@ class ApiItemController extends REST_Controller
             $fmi = array();
             $fmi['item_id'] = $insertedId;
             $fmi['item_type'] = $item_type;
-            $fmi['item_description'] = $op_stock['iem_description'];
-            $fmi['stock_quantity'] = $op_stock['stock_quantity'] * $conversion_rate;
+            $fmi['item_description'] = $op_stock['item_description'];
+            $fmi['stock_quantity'] = $op_stock['quantity'] * $conversion_rate;
             $fmi['outlet_id'] = $this->Common_model->fieldNameCheckingByFieldNameForAPI($outlet_name, 'outlet_name', 'tbl_outlets', $user_id, $company_id);
             $fmi['user_id'] = $user_id;
             $fmi['company_id'] = $company_id;
-            if ($op_stock['stock_quantity'] != '') {
+            if ($op_stock['quantity'] != '') {
                 $this->Common_model->insertInformation($fmi, 'tbl_set_opening_stocks');
             }
         }
