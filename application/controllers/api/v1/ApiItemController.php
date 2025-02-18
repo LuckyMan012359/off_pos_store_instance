@@ -248,6 +248,7 @@ class ApiItemController extends REST_Controller
                 $unit_type = $item_info['unit_type'];
                 $opening_stock = json_decode(str_replace("'", '"', $item_info['opening_stock']), true);
                 $itemArr = array();
+                $itemArr['code'] = $item_info['code'];
                 $itemArr['name'] = $item_info['name'];
                 $itemArr['alternative_name'] = $item_info['alternative_name'];
                 $itemArr['type'] = $item_info['type'];
@@ -355,16 +356,27 @@ class ApiItemController extends REST_Controller
     public function deleteItem_post()
     {
         $item_info = json_decode(file_get_contents("php://input"), true);
-        $item_id = $item_info['id'];
-        $item_data2 = $this->Common_model->getFindId($item_id, 'tbl_items');
-        if ($item_data2) {
-            $this->Common_model->deleteStatusChange($item_id, "tbl_items");
-            $this->Common_model->childItemDeleteStatusChange($item_id, "tbl_items");
-            $this->Common_model->openingStockItemDeleteStatusChange($item_id);
-            $response = [
-                'status' => 200,
-                'data' => 'Item Deleted Successfully',
-            ];
+        // $item_id = $item_info['id'];
+        $item_code = $item_info['code'];
+        // $item_data2 = $this->Common_model->getFindId($item_id, 'tbl_items');
+        $find_item_id = getItemData($item_code);
+        if ($find_item_id) {
+            $company_info = getCompanyInfoByAPIKey($item_info['api_auth_key']);
+            if ($company_info) {
+                $this->Common_model->deleteStatusChange($find_item_id->id, "tbl_items");
+                $this->Common_model->childItemDeleteStatusChange($find_item_id->id, "tbl_items");
+                $this->Common_model->openingStockItemDeleteStatusChange($find_item_id->id);
+                $response = [
+                    'status' => 200,
+                    'data' => 'Item Deleted Successfully',
+                    'item_code' => $find_item_id,
+                ];
+            } else {
+                $response = array(
+                    'status' => 500,
+                    'message' => 'API Key is not valid',
+                );
+            }
         } else {
             $response = [
                 'status' => 404,
