@@ -88,6 +88,7 @@ class ApiItemController extends REST_Controller
                 $itemArr = array();
                 $itemArr['code'] = $item_info['code'];
                 $itemArr['name'] = $item_info['name'];
+                $itemArr['photo'] = $item_info['photo'];
                 $itemArr['alternative_name'] = $item_info['alternative_name'];
                 $itemArr['type'] = $item_info['type'];
                 $itemArr['p_type'] = $item_info['type'];
@@ -225,6 +226,47 @@ class ApiItemController extends REST_Controller
             ->set_output(json_encode($response));
     }
 
+    public function uploadImage_post()
+    {
+        $upload_path = FCPATH . 'uploads/items/';
+
+        if (!is_dir($upload_path)) {
+            mkdir($upload_path, 0777, true);
+        }
+
+        $config['upload_path'] = $upload_path;
+        $config['allowed_types'] = 'jpg|jpeg|png|gif';
+        $config['file_name'] = $_FILES['photo']['name'];
+
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload('photo')) {
+            $error = $this->upload->display_errors();
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status' => 'error',
+                    'message' => $error
+                ]));
+        } else {
+            $upload_data = $this->upload->data();
+            $file_path = $upload_data['full_path'];
+
+            $this->output
+                ->set_content_type('application/json')
+                ->set_output(json_encode([
+                    'status' => 'success',
+                    'file_path' => $file_path,
+                    'file_name' => $upload_data['file_name'],
+                    'file_size' => $upload_data['file_size'],
+                    'file_type' => $upload_data['file_type']
+                ]));
+        }
+    }
+
+
+
+
 
     /**
      * updateItem_post
@@ -250,6 +292,7 @@ class ApiItemController extends REST_Controller
                 $itemArr = array();
                 $itemArr['code'] = $item_info['code'];
                 $itemArr['name'] = $item_info['name'];
+                $itemArr['photo'] = $item_info['photo'];
                 $itemArr['alternative_name'] = $item_info['alternative_name'];
                 $itemArr['type'] = $item_info['type'];
                 $itemArr['p_type'] = $item_info['type'];
