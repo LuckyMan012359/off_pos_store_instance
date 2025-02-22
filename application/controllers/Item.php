@@ -309,8 +309,76 @@ class Item extends Cl_Controller
                 } else {
                     $this->Common_model->updateInformation($product_info, $id, "tbl_items");
 
+                    $category_data = $this->Common_model->getDataById($product_info["category_id"], 'tbl_item_categories');
+                    $product_info['category_name'] = $category_data->name;
+
+                    $brand_data = $this->Common_model->getDataById($product_info['brand_id'], 'tbl_brands');
+                    $product_info['brand_name'] = $brand_data->name;
+
+                    $supplier_data = $this->Common_model->getDataById($product_info['supplier_id'], 'tbl_suppliers');
+                    $product_info['supplier_name'] = $supplier_data->name;
+
+                    $purchase_unit_name = $this->Common_model->getDataById($product_info['purchase_unit_id'], 'tbl_units');
+                    $product_info['purchase_unit_name'] = $purchase_unit_name->unit_name;
+
+                    $sale_unit_name = $this->Common_model->getDataById($product_info['sale_unit_id'], 'tbl_units');
+                    $product_info['sale_unit_name'] = $sale_unit_name->unit_name;
+
+                    $company_data = $this->Common_model->getDataById($product_info['company_id'], 'tbl_companies');
+                    $product_info['api_key'] = $company_data->api_token;
+
+                    $base_url = base_url();
+
+                    $parsed_url = parse_url($base_url, PHP_URL_HOST) . parse_url($base_url, PHP_URL_PATH);
+
+                    $product_info['domain'] = rtrim($parsed_url, '/');
+
+                    $openingStockData = [];
+
+                    if ($type != 'Variation_Product') {
+                        if (isset($_POST['outlets']) && $_POST['outlets']) {
+                            foreach ($_POST['outlets'] as $key => $outlet) {
+                                $outlet_data = $this->Common_model->getDataById($outlet, 'tbl_outlets');
+                                $openingStockData[] = [
+                                    "outlet_id" => $outlet_data->id,
+                                    "outlet_name" => $outlet_data->outlet_name,
+                                    "quantity" => $_POST['quantity'][$key],
+                                    "conversion_rate" => $product_info['conversion_rate'],
+                                    "item_description" => $_POST['item_description'][$key]
+                                ];
+                            }
+                        }
+                    }
+
+                    if ($type == 'Combo_Product') {
+                        if (isset($_POST['combo_item_qty']) && $_POST['combo_item_qty']) {
+                            foreach ($_POST['combo_item_qty'] as $key => $combo_item) {
+                                $openingStockData[] = [
+                                    "combo_item_id" => $key,
+                                    "combo_item_quantity" => $combo_item,
+                                ];
+                            }
+                        }
+                    }
+
+                    $product_info["opening_stock_data"] = $openingStockData;
+
+                    $nodejs_url = "http://localhost:5000/api/sub/product/update-item";
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $nodejs_url);
+                    curl_setopt($ch, CURLOPT_POST, 1);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($product_info));
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Content-Length: ' . strlen(json_encode($product_info))
+                    ]);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                    curl_exec($ch);
+                    curl_close($ch);
+
+                    $this->session->set_flashdata('exception', lang('update_success'));
+
                     setAveragePrice($id);
-                    // Product Code Generate
                     $generated_code = $this->Master_model->generateItemCode();
                     $product_code_start_from = $this->session->userdata('product_code_start_from');
                     if ($product_code_start_from) {
@@ -772,6 +840,35 @@ class Item extends Cl_Controller
     public function deleteItem($id)
     {
         $id = $this->custom->encrypt_decrypt($id, 'decrypt');
+
+        $item_data = $this->Common_model->getDataById($id, 'tbl_items');
+
+        $company_id = $this->session->userdata('company_id');
+
+        $company_data = $this->Common_model->getDataById($company_id, 'tbl_companies');
+
+        $base_url = base_url();
+
+        $parsed_url = parse_url($base_url, PHP_URL_HOST) . parse_url($base_url, PHP_URL_PATH);
+
+        $item_data->token = $company_data->api_token;
+        $item_data->domain = rtrim($parsed_url, '/');
+
+        print_r(json_encode($item_data));
+
+        $nodejs_url = "http://localhost:5000/api/sub/product/delete-item";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $nodejs_url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($item_data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen(json_encode($item_data))
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_exec($ch);
+        curl_close($ch);
+
         $this->Common_model->deleteStatusChange($id, "tbl_items");
         $this->Common_model->childItemDeleteStatusChange($id, "tbl_items");
         $this->Common_model->comboItemDeleteStatusChange($id);
