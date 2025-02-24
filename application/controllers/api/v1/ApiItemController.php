@@ -192,6 +192,7 @@ class ApiItemController extends REST_Controller
                 'outlet_name' => $outlet_data['name'],
                 'address' => $outlet_data['address'],
                 "phone" => $outlet_data["phone"],
+                'company_info' => $company_info,
             );
         }
         $this->output
