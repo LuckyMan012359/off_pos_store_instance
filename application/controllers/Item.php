@@ -229,7 +229,7 @@ class Item extends Cl_Controller
                             $this->saveComboProducts($_POST['combo_item_qty'], $id);
                         }
                     }
-                    // Product Code Generate
+
                     $generated_code = $this->Master_model->generateItemCode();
                     $product_code_start_from = $this->session->userdata('product_code_start_from');
                     if ($product_code_start_from) {
@@ -302,8 +302,22 @@ class Item extends Cl_Controller
                         'Content-Length: ' . strlen(json_encode($product_info))
                     ]);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                    curl_exec($ch);
+                    $response = curl_exec($ch);
                     curl_close($ch);
+
+                    if ($response === false) {
+                        echo "Error: " . curl_error($ch);
+                    } else {
+                        $response_data = json_decode($response, true);
+
+                        if (isset($response_data['item_code'])) {
+                            $item_code = $response_data['item_code'];
+                        } else {
+                            echo "Error: 'item_code' not found in the response";
+                        }
+                    }
+
+                    $this->Common_model->updateFieldByCondition('code', $product_info['code'], 'code', $item_code, 'tbl_items');
 
                     $this->session->set_flashdata('exception', lang('insertion_success'));
                 } else {

@@ -2130,6 +2130,16 @@ class Common_model extends CI_Model
         $this->db->update($table_name, $data);
     }
 
+    public function updateFieldByCondition($search_field, $search_value, $update_field, $update_value, $table_name)
+    {
+        $this->db->set($update_field, $update_value);
+
+        $this->db->where($search_field, $search_value);
+
+        $this->db->update($table_name);
+    }
+
+
     /**
      * deletingMultipleFormData
      * @access public
