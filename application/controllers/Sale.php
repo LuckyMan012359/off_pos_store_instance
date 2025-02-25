@@ -301,6 +301,7 @@ class Sale extends Cl_Controller
         $acc_type = array();
 
         $customer_name = htmlspecialcharscustom($this->input->post($this->security->xss_clean('customer_name')));
+        $employee_name = htmlspecialcharscustom($this->input->post($this->security->xss_clean('employee_name')));
         $account_type = htmlspecialcharscustom($this->input->post($this->security->xss_clean('account_type')));
         $send_invoice_email = htmlspecialcharscustom($this->input->post($this->security->xss_clean('send_invoice_email')));
         $send_invoice_sms = htmlspecialcharscustom($this->input->post($this->security->xss_clean('send_invoice_sms')));
@@ -443,6 +444,11 @@ class Sale extends Cl_Controller
                 $this->db->update('tbl_sales', $sale_no_update_array);
             }
         }
+
+        $send_data = array();
+
+        $loyalty_points = [];
+
         if ($sales_id > 0 && count($order_details->items) > 0) {
             $promo_parnt_id = '';
             foreach ($order_details->items as $item) {
@@ -475,12 +481,15 @@ class Sale extends Cl_Controller
                 }
                 if ($customer_name != 'Walk-in Customer') {
                     $item_data['loyalty_point_earn'] = ($item->item_quantity * getLoyaltyPointByFoodMenu($item->item_id, ''));
+                    $loyalty_points[] = ($item->item_quantity * getLoyaltyPointByFoodMenu($item->item_id, ''));
                 }
                 $item_data['user_id'] = $this->session->userdata('user_id');
                 $item_data['outlet_id'] = $this->session->userdata('outlet_id');
                 $item_data['company_id'] = $this->session->userdata('company_id');
                 $item_data['del_status'] = 'Live';
+
                 $this->db->insert('tbl_sales_details', $item_data);
+
                 $sale_details_item_id = $this->db->insert_id();
                 if ($item->is_promo_item_exist) {
                     $promo_parnt_id = $this->db->insert_id();
@@ -528,6 +537,111 @@ class Sale extends Cl_Controller
         $payment_object = $_POST['payment_object'];
         // $payment_details = $_POST['paymentAccountDetails'];
         $payment_note = $this->input->post($this->security->xss_clean('paymentAccountDetails'));
+
+        $outlet_id = $this->session->userdata('outlet_id');
+
+        $outlet_data = $this->Common_model->getDataById($outlet_id, 'tbl_outlets');
+
+        $company_id = $this->session->userdata('company_id');
+
+        $company_data = $this->Common_model->getDataById($company_id, 'tbl_companies');
+
+        $base_url = base_url();
+
+        $parsed_url = parse_url($base_url, PHP_URL_HOST) . parse_url($base_url, PHP_URL_PATH);
+
+        $send_data['api_auth_key'] = $company_data->api_token;
+        $send_data['sale_id'] = $sales_id;
+        $send_data['domain'] = rtrim($parsed_url, '/');
+        $send_data['loyalty_point'] = $loyalty_points;
+        $send_data['data'] = json_encode($_POST);
+        $send_data['grand_total'] = trim_checker($order_details->total_payable);
+        $send_data['delivery_status'] = $data['delivery_status'];
+        $send_data['account_note'] = $account_note;
+        $send_data['outlet_name'] = $this->session->userdata('outlet_name');
+        $send_data['account_type'] = $data['account_type'];
+        $send_data['fiscal_printer_status'] = $fiscal_printer_status;
+        $send_data['added_date'] = date('Y-m-d H:i:s');
+        $send_data['order_date_time'] = date('Y-m-d H:i:s');
+        $send_data['send_invoice_email'] = $send_invoice_email;
+        $send_data['employee_name'] = $employee_name;
+
+
+
+        if ($delivery_partner) {
+            if ($delivery_partner === '0') {
+                $send_data['delivery_partner_name'] = '';
+            } else {
+                $delivery_partner_data = $this->Common_model->getDataById($delivery_partner, 'tbl_delivery_partners');
+
+                $send_data['delivery_partner_name'] = $delivery_partner_data->partner_name;
+            }
+        }
+
+        if (isset($payment_object)) {
+            if ($currency_type == 1) {
+                $send_data['payment_id'] = getPaymentIdByPaymentName('Cash');
+                $send_data['payment_name'] = "Cash";
+                $send_data['amount'] = $multi_currency_amount;
+                $send_data['multi_currency'] = $multi_currency;
+                $send_data['multi_currency_rate'] = $multi_currency_rate;
+                $send_data['currency_type'] = $currency_type;
+                $send_data['date'] = date('Y-m-d');
+                $send_data['added_date'] = date('Y-m-d H:i:s');
+                $send_data['sale_id'] = $sales_id;
+                $send_data['outlet_id'] = $this->session->userdata('outlet_id');
+                $send_data['user_id'] = $this->session->userdata('user_id');
+                $send_data['company_id'] = $this->session->userdata('company_id');
+            } else {
+                $pk = 0;
+                $payment_details = json_decode($payment_object);
+                foreach ($payment_details as $value) {
+                    $send_data['payment_id'] = $value->payment_id;
+                    $send_data['payment_name'] = $value->payment_name;
+                    $send_data['amount'] = $value->amount;
+                    $send_data['date'] = date('Y-m-d');
+                    $send_data['added_date'] = date('Y-m-d H:i:s');
+                    $send_data['sale_id'] = $sales_id;
+                    if ($value->payment_name == 'Loyalty Point') {
+                        $send_data['usage_point'] = $value->usage_point;
+                        $previous_id_update_array = array('loyalty_point_earn' => 0);
+                        $this->db->where('sales_id', $sales_id);
+                        $this->db->update('tbl_sales_details', $previous_id_update_array);
+                    }
+                    $send_data['payment_details'] = $payment_note[$pk];
+                    $send_data['outlet_id'] = $this->session->userdata('outlet_id');
+                    $send_data['user_id'] = $this->session->userdata('user_id');
+                    $send_data['company_id'] = $this->session->userdata('company_id');
+                    $pk++;
+                }
+            }
+        }
+
+        $nodejs_url = "";
+
+        if ($sale_old_id > 0) {
+            $nodejs_url = "http://localhost:5000/api/sub/sale/update-sale";
+
+            $saleData = $this->Common_model->getDataById($sales_id, 'tbl_sales');
+
+            if ($saleData) {
+                $send_data['random_code'] = $saleData->random_code;
+            }
+        } else {
+            $nodejs_url = "http://localhost:5000/api/sub/sale/add-sale";
+        }
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $nodejs_url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($send_data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen(json_encode($send_data))
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_exec($ch);
+        curl_close($ch);
 
         if (isset($payment_object)) {
             if ($currency_type == 1) {
@@ -853,6 +967,35 @@ class Sale extends Cl_Controller
     public function deleteSale($id)
     {
         $id = $this->custom->encrypt_decrypt($id, 'decrypt');
+
+        $send_data = $this->Common_model->getDataById($id, 'tbl_sales');
+
+        $company_id = $this->session->userdata('company_id');
+
+        $company_data = $this->Common_model->getDataById($company_id, 'tbl_companies');
+
+        $base_url = base_url();
+
+        $parsed_url = parse_url($base_url, PHP_URL_HOST) . parse_url($base_url, PHP_URL_PATH);
+
+        $send_data->api_auth_key = $company_data->api_token;
+
+        $send_data->domain = rtrim($parsed_url, '/');
+
+        $nodejs_url = "http://localhost:5000/api/sub/sale/delete-sale";
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $nodejs_url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($send_data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen(json_encode($send_data))
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_exec($ch);
+        curl_close($ch);
+
         $isDeleted = $this->delete_specific_order_by_sale_id($id);
         if ($isDeleted) {
             $this->session->set_flashdata('exception', lang('delete_success'));

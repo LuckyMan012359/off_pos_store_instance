@@ -3230,9 +3230,9 @@ if (!function_exists('getCompanyInfoByAPIKey')) {
         $CI->db->where("phone", $outlet_data["phone"]);
         $result = $CI->db->get()->row();
 
-        // if (!$result) {
-        //     return null;
-        // }
+        if (!$result) {
+            return null;
+        }
 
         $CI->db->select("*");
         $CI->db->from("tbl_companies");

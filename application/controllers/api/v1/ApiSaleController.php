@@ -81,7 +81,7 @@ class ApiSaleController extends REST_Controller
                 $company_id = $company_info->id;
                 $user_id = $company_info->user_id;
                 $saleArr = array();
-                $saleArr['customer_id'] = $this->Common_model->fieldNameCheckingByFieldNameForAPI($sale_info['customer_name'], 'name', 'tbl_customers', 0, $company_id);
+                $saleArr['customer_id'] = $this->Common_model->getCustomerDataByMulipleField($sale_info['customer_name'], 'name', 'tbl_customers', 0, $company_id, $sale_info['customer_info']);
                 $saleArr['total_items'] = $sale_info['total_items'];
                 $saleArr['sub_total'] = $sale_info['sub_total'];
                 $saleArr['paid_amount'] = $sale_info['paid_amount'];
@@ -120,6 +120,9 @@ class ApiSaleController extends REST_Controller
                 $saleArr['parent_id'] = (int) $sale_info['sale_id'];
                 $sale_details = json_decode(str_replace("'", '"', $sale_info['items']), true);
                 $payment_details = json_decode(str_replace("'", '"', $sale_info['payment_details']), true);
+
+                $customer_info = $sale_info['customer_info'];
+
                 $insertedId = $this->Common_model->insertInformation($saleArr, "tbl_sales");
                 $this->saveSaleDetails($sale_details, $insertedId, $user_id, $saleArr['outlet_id'], $company_id);
                 $this->saveSalePaymentDetails($payment_details, $insertedId, $user_id, $saleArr['outlet_id'], $company_id);
@@ -127,6 +130,9 @@ class ApiSaleController extends REST_Controller
                     $response = array(
                         'status' => 200,
                         'message' => 'Sale successfully complete',
+                        'customer_info' => $sale_info['customer_info'],
+                        'customer_info1' => $customer_info->opening_balance_type,
+                        'customer_info2' => $customer_info['opening_balance_type'],
                     );
                 } else {
                     $response = array(
@@ -191,8 +197,8 @@ class ApiSaleController extends REST_Controller
     public function updateSale_post()
     {
         $find_sale_id = json_decode(file_get_contents("php://input"), true);
-        $sale_id = $find_sale_id['sale_id'];
-        $find_sale_id = $this->Common_model->getDataByField($sale_id, 'tbl_sales', 'parent_id');
+        $random_code = $find_sale_id['random_code'];
+        $find_sale_id = $this->Common_model->getDataByField($random_code, 'tbl_sales', 'random_code');
         if ($find_sale_id) {
             $sale_updated_id = $find_sale_id[0]->id;
             $sale_info = json_decode(file_get_contents("php://input"), true);
@@ -216,7 +222,7 @@ class ApiSaleController extends REST_Controller
                     $company_id = $company_info->id;
                     $user_id = $company_info->user_id;
                     $saleArr = array();
-                    $saleArr['customer_id'] = $this->Common_model->fieldNameCheckingByFieldNameForAPI($sale_info['customer_name'], 'name', 'tbl_customers', 0, $company_id);
+                    $saleArr['customer_id'] = $this->Common_model->getCustomerDataByMulipleField($sale_info['customer_name'], 'name', 'tbl_customers', 0, $company_id, $sale_info['customer_info']);
                     $saleArr['total_items'] = $sale_info['total_items'];
                     $saleArr['sub_total'] = $sale_info['sub_total'];
                     $saleArr['paid_amount'] = $sale_info['paid_amount'];
@@ -245,7 +251,6 @@ class ApiSaleController extends REST_Controller
                     $saleArr['account_type'] = $sale_info['account_type'];
                     $sale_vat_objects = json_decode(str_replace("'", '"', $sale_info['sale_vat_objects']), true);
                     $saleArr['sale_vat_objects'] = json_encode($sale_vat_objects);
-                    $saleArr['random_code'] = $sale_info['random_code'];
                     $saleArr['note'] = $sale_info['note'];
                     $saleArr['order_date_time'] = date("Y-m-d H:i:s");
                     $saleArr['added_date'] = date('Y-m-d H:i:s');
@@ -289,6 +294,7 @@ class ApiSaleController extends REST_Controller
             $response = array(
                 'status' => 404,
                 'message' => 'Sale Not Found',
+                'ramdom_code' => $random_code,
             );
         }
         $this->output
@@ -306,8 +312,8 @@ class ApiSaleController extends REST_Controller
     public function deleteSale_post()
     {
         $find_sale_id = json_decode(file_get_contents("php://input"), true);
-        $sale_id = $find_sale_id['id'];
-        $find_sale_id = $this->Common_model->getDataByField($sale_id, 'tbl_sales', 'parent_id');
+        $random_code = $find_sale_id['random_code'];
+        $find_sale_id = $this->Common_model->getDataByField($random_code, 'tbl_sales', 'random_code');
         if ($find_sale_id) {
             $sale_id = $find_sale_id[0]->id;
             $sale_info = json_decode(file_get_contents("php://input"), true);
@@ -330,6 +336,8 @@ class ApiSaleController extends REST_Controller
             $response = [
                 'status' => 404,
                 'data' => 'Data Not Found!',
+                'data1' => json_decode(file_get_contents("php://input"), true),
+                'random_code' => $random_code,
             ];
         }
         $this->output
