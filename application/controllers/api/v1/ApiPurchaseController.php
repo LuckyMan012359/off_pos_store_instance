@@ -136,13 +136,15 @@ class ApiPurchaseController extends REST_Controller
             $purchase_updated_id = $find_purchase_id[0]->id;
             $purchase_info = json_decode(file_get_contents("php://input"), true);
 
+            $supplier_info = $purchase_info['supplier_info'];
+
             $outlet_info = $purchase_info['outlet_info'];
 
             $company_info = getCompanyInfoByAPIKey($outlet_info['token']);
             $error = false;
             if ($company_info) {
                 $purchaseArr = array();
-
+                $purchaseArr['supplier_id'] = $this->Common_model->getSupplierDataByMulipleField($supplier_info['name'], 'name', 'tbl_suppliers', 0, $company_info->id, $supplier_info);
                 $purchaseArr['reference_no'] = $purchase_info['reference_no'];
                 $purchaseArr['invoice_no'] = $purchase_info['invoice_no'];
                 $purchaseArr['supplier_id'] = $purchase_info['supplier_id'];
